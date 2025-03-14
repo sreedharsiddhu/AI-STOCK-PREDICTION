@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: auto;
+        }
+        .left {
+            width: 65%;
+        }
+        .right {
+            width: 30%;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+        }
+        input {
+            width: 200px;
+        }
+        button {
+            background-color: #ff5733;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #ff2e00;
+        }
+        canvas {
+            max-width: 100%;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        h2 {
+            color: #ffcc00;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📈 Stock Price Prediction</h1>
+    <div class="container">
+        <div class="left">
+            <input type="text" id="ticker" placeholder="Enter Stock Ticker (e.g., AAPL)">
+            <button onclick="fetchPrediction()">Predict</button>
+            <canvas id="predictionChart"></canvas>
+        </div>
+        <div class="right">
+            <h2>📊 Stock Info</h2>
+            <p><strong>Current Price:</strong> <span id="currentPrice">--</span> USD</p>
+            <p><strong>Predicted Price:</strong> <span id="predictedPrice">--</span> USD</p>
+        </div>
+    </div>
+
+    <script>
+        async function fetchPrediction() {
+            const ticker = document.getElementById("ticker").value.toUpperCase().trim();
+            if (!ticker) {
+                alert("Please enter a stock ticker!");
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/predict/${ticker}`);
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.actual_prices || !data.predicted_prices || data.actual_prices.length === 0) {
+                    alert("No stock data available.");
+                    return;
+                }
+
+                const actualPrices = data.actual_prices;
+                const predictedPrices = data.predicted_prices;
+
+                let dateLabels = data.dates || generateDateLabels(actualPrices.length);
+
+                document.getElementById("currentPrice").innerText = actualPrices[actualPrices.length - 1] + " USD";
+                document.getElementById("predictedPrice").innerText = predictedPrices[predictedPrices.length - 1] + " USD";
+
+                updateChart(dateLabels, actualPrices, predictedPrices);
+            } catch (error) {
+                alert("Error fetching data: " + error.message);
+            }
+        }
+
+        function generateDateLabels(length) {
+            const today = new Date();
+            return Array.from({ length }, (_, i) => {
+                let date = new Date(today);
+                date.setDate(today.getDate() - length + i + 1);
+                return date.toISOString().split("T")[0];
+            });
+        }
+
+        function updateChart(dateLabels, actualPrices, predictedPrices) {
+            const ctx = document.getElementById("predictionChart").getContext("2d");
+
+            if (window.stockChart) {
+                window.stockChart.destroy();
+            }
+
+            window.stockChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: dateLabels,
+                    datasets: [
+                        {
+                            label: "Actual Prices",
+                            data: actualPrices,
+                            borderColor: "cyan",
+                            backgroundColor: "rgba(0, 255, 255, 0.2)",
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: "Predicted Prices",
+                            data: predictedPrices,
+                            borderColor: "yellow",
+                            backgroundColor: "rgba(255, 255, 0, 0.2)",
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Stock Price Prediction vs. Actual Prices",
+                            font: { size: 18 }
+                        },
+                        legend: {
+                            display: true,
+                            position: "top"
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Date",
+                                font: { size: 14, weight: "bold" }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: "Stock Price (USD)",
+                                font: { size: 14, weight: "bold" }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
